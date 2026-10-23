@@ -1,0 +1,33 @@
+services:
+  crossfade:
+    image: ghcr.io/mihoko-okayami/crossfade:latest
+    container_name: crossfade
+    network_mode: host
+    read_only: true
+    cpus: "4.0"
+    mem_limit: 4g
+    memswap_limit: 4g
+    pids_limit: 512
+    ulimits:
+      nofile: 32768
+    volumes:
+      - /home/crossfade/conf:/etc/crossfade:ro
+      - /home/crossfade/data:/data:ro
+    security_opt:
+      - no-new-privileges=true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "/crossfade", "--health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped

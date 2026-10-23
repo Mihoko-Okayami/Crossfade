@@ -1,0 +1,41 @@
+name: Sanitizers
+
+on:
+  push:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sanitizer: asan-ubsan
+            flags: -fsanitize=address,undefined -fno-sanitize-recover=undefined
+          - sanitizer: tsan
+            flags: -fsanitize=thread
+    name: e2e (${{ matrix.sanitizer }})
+    runs-on: ubuntu-26.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg libsrt-openssl-dev pkg-config
+      - name: Build with gcc warnings as errors
+        if: matrix.sanitizer == 'asan-ubsan'
+        run: gcc -std=gnu17 -O2 -Wall -Wextra -Werror -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=3 '-DVERSION="ci"' -o /tmp/crossfade src/*.c $(pkg-config --cflags --libs srt) -lpthread
+      - name: Build with sanitizers
+        run: gcc -std=gnu17 -O1 -g -fno-omit-frame-pointer $FLAGS '-DVERSION="ci"' -o crossfade-san src/*.c $(pkg-config --cflags --libs srt) -lpthread
+        env:
+          FLAGS: ${{ matrix.flags }}
+      - run: sudo sysctl -w vm.mmap_rnd_bits=28
+      - run: sudo ip addr add 198.51.100.1/32 dev lo
+      - run: bash .github/e2e/scenario.sh native ./crossfade-san
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=0
+          UBSAN_OPTIONS: print_stacktrace=1
+          TSAN_OPTIONS: halt_on_error=0:second_deadlock_stack=1:report_signal_unsafe=0:suppressions=${{ github.workspace }}/.github/e2e/tsan.supp

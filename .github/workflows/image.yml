@@ -1,0 +1,45 @@
+name: Image
+
+on:
+  push:
+    branches: ["**"]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-26.04
+          - arch: arm64
+            runner: ubuntu-26.04-arm
+    name: build (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          build-args: VERSION=dev
+          provenance: mode=max
+          sbom: true
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          load: true
+          tags: crossfade:test
+          build-args: VERSION=dev
+          provenance: false
+          sbom: false
+      - run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends ffmpeg
+      - run: sudo ip addr add 198.51.100.1/32 dev lo
+      - run: bash .github/e2e/scenario.sh docker
