@@ -261,6 +261,10 @@ static int sync_feed(struct stream *stream, struct feed *feed, unsigned char *p)
 		}
 	}
 	reset_packer(stream, whole);
+	if (!whole) {
+		atomic_store(&stream->ts.rate, 0);
+		atomic_store(&stream->rtp.rate, 0);
+	}
 	stream->whole = 0;
 	feed->synced = 1;
 	return 1;
