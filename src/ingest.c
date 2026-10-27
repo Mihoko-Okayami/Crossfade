@@ -509,11 +509,13 @@ static struct stream *resolve(const char *id, int *publish, char *name) {
 static void report_refusal(const struct attempt *attempt) {
 	static const char *const reasons[] = { [WAITING] = "wrong or missing passphrase", [MISUSED] = "not a publish request", [COOLING] = "blocked for up to 10 s after 5 failed attempts", [SWAMPED] = "more than 20 publisher attempts per second on the server" };
 	if (attempt->kind == NAMELESS) {
-		note(ON_SERVER | WARN, "connection refused from %s, no streamid", attempt->host);
+		tell(UNMATCHED, "connection refused from %s, no streamid", attempt->host);
 	} else if (attempt->kind == UNKNOWN) {
-		note(ON_SERVER | WARN, "connection refused from %s, unknown stream \"%s\"", attempt->host, attempt->name);
-	} else {
+		tell(UNMATCHED, "connection refused from %s, unknown stream \"%s\"", attempt->host, attempt->name);
+	} else if (attempt->kind == WAITING) {
 		note(ON_STREAM | WARN, "%s: connection refused from %s, %s", attempt->name, attempt->host, reasons[attempt->kind]);
+	} else {
+		tell(BARRED, "%s: connection refused from %s, %s", attempt->name, attempt->host, reasons[attempt->kind]);
 	}
 }
 

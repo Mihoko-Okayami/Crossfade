@@ -20,7 +20,7 @@ struct burst {
 };
 
 static const char *const names[] = { "server", "config", "stream", "viewer" };
-static const int topics[EVENTS] = { [UNACCEPTED] = ON_VIEWER | FAIL, [FULL] = ON_VIEWER | FAIL, [STARVED] = ON_VIEWER | FAIL, [OVERSIZED] = ON_STREAM | WARN, [OVERFLOWED] = ON_STREAM | WARN, [CHANGED] = ON_STREAM };
+static const int topics[EVENTS] = { [UNACCEPTED] = ON_VIEWER | FAIL, [FULL] = ON_VIEWER | FAIL, [STARVED] = ON_VIEWER | FAIL, [OVERSIZED] = ON_STREAM | WARN, [OVERFLOWED] = ON_STREAM | WARN, [CHANGED] = ON_STREAM, [UNMATCHED] = ON_SERVER | WARN, [BARRED] = ON_STREAM | WARN };
 static pthread_mutex_t told = PTHREAD_MUTEX_INITIALIZER;
 static struct burst bursts[EVENTS];
 static int color;
