@@ -69,11 +69,23 @@ static struct attempt attempts[ATTEMPTS];
 static unsigned int oldest, newest;
 
 static void finish(struct stream *stream) {
+	struct packer *packer = &stream->packer;
 	atomic_store(&stream->state, IDLE);
 	ring_forget(&stream->ts);
 	ring_forget(&stream->rtp);
 	ring_shrink(&stream->ts);
 	ring_shrink(&stream->rtp);
+	pthread_mutex_lock(&stream->rtp.lock);
+	stream->sdp_size = 0;
+	stream->rate = 0;
+	pthread_mutex_unlock(&stream->rtp.lock);
+	packer->video.open = packer->audio.open = 0;
+	packer->video.cc = packer->audio.cc = -1;
+	packer->sps_size = packer->pps_size = packer->held_size = 0;
+	packer->rate = packer->channels = 0;
+	packer->au_bytes = packer->au_count = 0;
+	atomic_store(&stream->audio_kbps, 0);
+	memset(packer->config, 0, sizeof(packer->config));
 	stream->timeline = 0;
 	stream->aired = 0;
 	note(ON_STREAM, "%s: stream ended", stream->name);
@@ -314,19 +326,7 @@ static void retire(struct stream *stream) {
 }
 
 static void recycle(struct stream *stream, const char *name) {
-	struct packer *packer = &stream->packer;
 	rename_stream(stream, name);
-	pthread_mutex_lock(&stream->rtp.lock);
-	stream->sdp_size = 0;
-	stream->rate = 0;
-	pthread_mutex_unlock(&stream->rtp.lock);
-	packer->video.open = packer->audio.open = 0;
-	packer->video.cc = packer->audio.cc = -1;
-	packer->sps_size = packer->pps_size = packer->held_size = 0;
-	packer->rate = packer->channels = 0;
-	packer->au_bytes = packer->au_count = 0;
-	atomic_store(&stream->audio_kbps, 0);
-	memset(packer->config, 0, sizeof(packer->config));
 	memset(stream->cc, 15, sizeof(stream->cc));
 	stream->skipped = stream->lost = 0;
 	atomic_store(&stream->lagging, 0);
