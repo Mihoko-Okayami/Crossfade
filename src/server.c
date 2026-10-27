@@ -555,12 +555,12 @@ int healthy(void) {
 	for (i = 0; i < worker_count; i++) {
 		beat = atomic_load(&workers[i].beat);
 		if ((int64_t)(now - beat) < STUCK) continue;
-		note(ON_SERVER | FAIL, "health check failed: worker %u last ran %lld ms ago", i + 1, (long long)(now - beat));
+		tell(STALLED, "health check failed: worker %u last ran %lld ms ago", i + 1, (long long)(now - beat));
 		return 0;
 	}
 	beat = atomic_load(&ingest_beat);
 	if ((int64_t)(now - beat) < STUCK) return 1;
-	note(ON_SERVER | FAIL, "health check failed: the SRT receiver last ran %lld ms ago", (long long)(now - beat));
+	tell(STALLED, "health check failed: the SRT receiver last ran %lld ms ago", (long long)(now - beat));
 	return 0;
 }
 
