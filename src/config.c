@@ -553,7 +553,7 @@ struct plan *read_plan(const char *path, int probe) {
 	const char *problem = NULL;
 	struct plan *plan;
 	FILE *file;
-	int count = 0, c;
+	int count = 0, c, error;
 	plan = calloc(1, sizeof(*plan));
 	if (!plan) return NULL;
 	defaults(&plan->config);
@@ -596,7 +596,13 @@ struct plan *read_plan(const char *path, int probe) {
 			problem = NULL;
 		}
 	}
+	error = ferror(file) ? errno : 0;
 	fclose(file);
+	if (error) {
+		note(ON_CONFIG | FAIL, "%s: %s", path, strerror(error));
+		free(plan);
+		return NULL;
+	}
 	if (probe) return plan;
 	if (problem) {
 		note(ON_CONFIG | FAIL, "%s:%d: %s", path, count, problem);
