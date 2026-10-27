@@ -56,6 +56,7 @@ struct span {
 struct config config;
 atomic_int contained;
 static uint64_t videos;
+static uint64_t ram;
 
 static const char *const sections[] = { "general", "srt", "ts", "rtsp", "offline", "streams" };
 static const struct setting settings[] = {
@@ -312,6 +313,7 @@ static uint64_t memory(void) {
 	if (file) {
 		fclose(file);
 	}
+	ram = total;
 	atomic_store(&contained, limit && limit < total);
 	return limit && limit < total ? limit : total ? total : UINT64_MAX;
 }
@@ -345,7 +347,7 @@ static int fits(const struct plan *plan) {
 	spare = half > videos ? (half - videos) / count : 0;
 	buffer = spare > rtsp ? (spare - rtsp) / (unsigned int)(plan->config.ts_enabled + plan->config.rtsp_enabled) >> 20 : 0;
 	room = half > videos ? (half - videos) / each : 0;
-	if (limited) {
+	if (limited && 2 * need <= ram) {
 		used += snprintf(fix, sizeof(fix), "raise the container's memory limit to %llu GiB (mem_limit and memswap_limit in docker-compose.yml)", (unsigned long long)((2 * need + (1 << 30) - 1) >> 30));
 	}
 	if (buffer >= MIN_BUFFER) {
