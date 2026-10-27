@@ -60,12 +60,12 @@ buffer 16
 lag 1000
 clients 8
 [srt]
-listen 127.0.0.1:8890
+listen [::]:8890
 latency 200
 [ts]
 listen 127.0.0.1:8080
 [rtsp]
-listen 0.0.0.0:8554
+listen [::]:8554
 [offline]
 * 60 $1
 [streams]
@@ -73,7 +73,7 @@ $2 $PASS
 EOF
 }
 streams() { for i in $(seq "$2"); do echo "s$i $PASS"; done >>"$1"; }
-huge() { sed 's/^listen 127.0.0.1:8890$/listen 127.0.0.1:8894/; s/^listen 127.0.0.1:8080$/listen 127.0.0.1:8084/; s/^listen 0.0.0.0:8554$/listen 127.0.0.1:8558/; s/^buffer 16$/buffer '"$2"'/' "$WORK/crossfade.conf" >"$WORK/huge.conf"; streams "$WORK/huge.conf" "$1"; }
+huge() { sed 's/^listen \[::\]:8890$/listen 127.0.0.1:8894/; s/^listen 127.0.0.1:8080$/listen 127.0.0.1:8084/; s/^listen \[::\]:8554$/listen 127.0.0.1:8558/; s/^buffer 16$/buffer '"$2"'/' "$WORK/crossfade.conf" >"$WORK/huge.conf"; streams "$WORK/huge.conf" "$1"; }
 tscheck() { python3 "$HERE/tscheck.py" "$1"; }
 keyframe() { ffprobe -v error -select_streams v -skip_frame nokey -show_entries frame=pts_time -of csv=p=0 -read_intervals %+5 "$1" 2>/dev/null | head -1; }
 decode() { local start; start=$(keyframe "$1"); ffmpeg -v error -nostdin -ss "${start:-0}" -i "$1" -f null - 2>&1 | grep -v -e "non monotonically increasing dts" -e "Last message repeated" | head -5; }
@@ -117,7 +117,7 @@ health=$(relay_health "$WORK/typo.conf" 2>&1)
 probed=$?
 expect "--health skips a misspelled section" '[ "$probed" = 0 ]' "exit $probed: $health"
 if [ "$MODE" = native ]; then
-	sed 's/^listen 127.0.0.1:8890$/listen 127.0.0.1:8891/; s/^listen 127.0.0.1:8080$/listen 127.0.0.1:8081/; s/^listen 0.0.0.0:8554$/listen 127.0.0.1:8555/' "$WORK/crossfade.conf" >"$WORK/full.conf"
+	sed 's/^listen \[::\]:8890$/listen 127.0.0.1:8891/; s/^listen 127.0.0.1:8080$/listen 127.0.0.1:8081/; s/^listen \[::\]:8554$/listen 127.0.0.1:8555/' "$WORK/crossfade.conf" >"$WORK/full.conf"
 	(ulimit -n 96 && exec "$BIN" "$WORK/full.conf") >"$WORK/full.log" 2>&1 &
 	FULL=$!
 	for i in $(seq 50); do grep -q " viewers)" "$WORK/full.log" && break; sleep 0.1; done
