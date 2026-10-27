@@ -300,7 +300,7 @@ static void tick(struct stream *stream, uint64_t now) {
 static void tally(struct stream *stream) {
 	unsigned int lagged = atomic_exchange(&stream->lagging, 0);
 	if (stream->lost) {
-		note(ON_STREAM | WARN, "%s: %u packet%s lost by SRT in the last 10 s, raise [srt] latency or the publisher's latency if it goes on", stream->name, stream->lost, stream->lost > 1 ? "s" : "");
+		note(ON_STREAM | WARN, "%s: %u packet%s lost by SRT in the last 10 s at %d ms latency, raise [srt] latency or the publisher's latency if it goes on", stream->name, stream->lost, stream->lost > 1 ? "s" : "", stream->latency);
 	}
 	if (stream->skipped) {
 		note(ON_STREAM | WARN, "%s: %llu byte%s skipped to find MPEG-TS packets in the last 10 s", stream->name, (unsigned long long)stream->skipped, stream->skipped > 1 ? "s" : "");
