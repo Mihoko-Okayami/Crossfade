@@ -113,7 +113,7 @@ void panel(void) {
 	char detail[32];
 	flockfile(stderr);
 	title("Input", "");
-	fprintf(stderr, "    SRT   %s\n    AES-%d %s\n", config.srt.text, config.keylen * 8, config.keylen == 32 ? "required" : "or stronger");
+	fprintf(stderr, "    SRT   %s\n          AES-%d %s\n", config.srt.text, config.keylen * 8, config.keylen == 32 ? "required" : "or stronger");
 	snprintf(detail, sizeof(detail), " (up to %u viewers)", viewer_limit);
 	title(config.ts_enabled && config.rtsp_enabled ? "Outputs" : "Output", detail);
 	if (config.ts_enabled) {
