@@ -112,8 +112,10 @@ static int parse_address(const char *text, struct sockaddr_storage *address, soc
 }
 
 static int set_address(struct endpoint *endpoint, const char *text) {
-	if (strlen(text) >= sizeof(endpoint->text) || !parse_address(text, &endpoint->address, &endpoint->length)) return 0;
-	snprintf(endpoint->text, sizeof(endpoint->text), "%s", text);
+	struct endpoint parsed;
+	if (strlen(text) >= sizeof(parsed.text) || !parse_address(text, &parsed.address, &parsed.length)) return 0;
+	snprintf(parsed.text, sizeof(parsed.text), "%s", text);
+	*endpoint = parsed;
 	return 1;
 }
 
