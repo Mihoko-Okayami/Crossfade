@@ -29,14 +29,17 @@ struct ring {
 	uint64_t window_written;
 	struct mark marks[MAX_MARKS];
 	unsigned int mark_count;
+	struct mark onset;
+	_Atomic uint64_t onset_at;
 };
 
 int ring_open(struct ring *ring, uint64_t size);
 void ring_close(struct ring *ring);
 void ring_shrink(struct ring *ring);
 void ring_write(struct ring *ring, const void *data, size_t size);
-void ring_mark(struct ring *ring, const struct mark *mark);
+void ring_mark(struct ring *ring, const struct mark *mark, int onset);
 void ring_forget(struct ring *ring);
+void ring_onset(struct ring *ring, struct mark *mark, unsigned int *epoch);
 void ring_release(struct ring *ring, uint64_t now);
 void ring_measure(struct ring *ring, uint64_t now);
 uint64_t ring_limit(struct ring *ring);

@@ -244,7 +244,7 @@ expect "RTSP decodes cleanly after the switch" '[ -z "$errors" ] && [ "$(duratio
 wait "$CURL"
 report=$(tscheck "$WORK/http2.ts")
 note "http2.ts: $report"
-expect ".ts across offline to live" '[ "$(jq -r ".sync and .harmful == 0 and .backwards == 0 and .seams == 0 and .video_gap_ms >= 300 and .video_gap_ms < 600" <<<"$report")" = true ]' "$report"
+expect ".ts across offline to live" '[ "$(jq -r ".sync and .harmful == 0 and .fillers == 0 and .backwards == 0 and .seams == 0 and .video_gap_ms >= 300 and .video_gap_ms < 600" <<<"$report")" = true ]' "$report"
 
 curl -s --max-time 20 http://127.0.0.1:8080/vrc.ts -o "$WORK/http3.ts" &
 CURL=$!

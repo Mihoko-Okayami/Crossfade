@@ -189,7 +189,8 @@ static void pack_video(struct stream *stream, const unsigned char *data, size_t 
 	release(stream, (uint32_t)(clock * (uint64_t)packer->rate / 90000), 0);
 	if (key) {
 		mark = (struct mark){ .at = stream->rtp.written, .time = msec(), .ts = { (uint32_t)clock, (uint32_t)(clock * (uint64_t)packer->rate / 90000) } };
-		ring_mark(&stream->rtp, &mark);
+		ring_mark(&stream->rtp, &mark, packer->onset);
+		packer->onset = 0;
 	}
 	for (sliced = 0, cursor = data; (nal = next_nal(&cursor, end, &length));) {
 		type = nal[0] & 0x1f;

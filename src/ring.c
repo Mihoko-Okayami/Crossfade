@@ -44,17 +44,29 @@ void ring_write(struct ring *ring, const void *data, size_t size) {
 	}
 }
 
-void ring_mark(struct ring *ring, const struct mark *mark) {
+void ring_mark(struct ring *ring, const struct mark *mark, int onset) {
 	pthread_mutex_lock(&ring->lock);
 	ring->marks[ring->mark_count % MAX_MARKS] = *mark;
 	ring->mark_count++;
+	if (onset) {
+		ring->onset = *mark;
+		atomic_store(&ring->onset_at, mark->at);
+	}
 	pthread_mutex_unlock(&ring->lock);
 }
 
 void ring_forget(struct ring *ring) {
 	pthread_mutex_lock(&ring->lock);
 	ring->mark_count = 0;
+	atomic_store(&ring->onset_at, 0);
 	atomic_fetch_add(&ring->epoch, 1);
+	pthread_mutex_unlock(&ring->lock);
+}
+
+void ring_onset(struct ring *ring, struct mark *mark, unsigned int *epoch) {
+	pthread_mutex_lock(&ring->lock);
+	*mark = ring->onset;
+	*epoch = atomic_load(&ring->epoch);
 	pthread_mutex_unlock(&ring->lock);
 }
 

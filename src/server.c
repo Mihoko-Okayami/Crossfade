@@ -36,6 +36,7 @@
 #define RESERVE 4
 #define MAX_SOURCES 32768
 #define STUCK 2000
+#define LATE 500
 
 struct worker {
 	pthread_t thread;
@@ -303,10 +304,17 @@ int choose(const struct viewer *viewer, struct ring *ring, int backlog, struct m
 	return found && atomic_load(&stream->version) == viewer->version && on_air(stream);
 }
 
+static int rejoin(struct viewer *viewer, uint64_t head) {
+	unsigned int epoch;
+	if (atomic_load(&viewer->ring->onset_at) <= viewer->pos) return 0;
+	ring_onset(viewer->ring, &viewer->target, &epoch);
+	return epoch == viewer->epoch && viewer->target.at > viewer->pos && viewer->target.at < head && viewer->target.time > viewer->since && msec() - viewer->target.time >= LATE;
+}
+
 void catch_up(struct viewer *viewer, uint64_t head) {
 	unsigned int epoch;
-	if (viewer->jump || head - viewer->pos <= ring_limit(viewer->ring)) return;
-	if (!choose(viewer, viewer->ring, 0, &viewer->target, &epoch) || epoch != viewer->epoch || viewer->target.at <= viewer->pos + ring_limit(viewer->ring) / 2) return;
+	if (viewer->jump) return;
+	if ((head - viewer->pos <= ring_limit(viewer->ring) || !choose(viewer, viewer->ring, 0, &viewer->target, &epoch) || epoch != viewer->epoch || viewer->target.at <= viewer->pos + ring_limit(viewer->ring) / 2) && !rejoin(viewer, head)) return;
 	viewer->jump = 1;
 	atomic_fetch_add(&viewer->stream->lagging, 1);
 }

@@ -30,6 +30,7 @@ struct packer {
 	unsigned char config[2];
 	int rate;
 	int channels;
+	int onset;
 	uint64_t au_bytes;
 	uint64_t au_count;
 	uint64_t clock;
