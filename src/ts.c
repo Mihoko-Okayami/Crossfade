@@ -180,10 +180,16 @@ void make_sdt(unsigned char *p, const char *name) {
 static void emit(struct stream *stream, const struct feed *feed, const unsigned char *packet, int pid) {
 	unsigned char p[PACKET], *stamp;
 	uint64_t t = 0;
-	int count, i;
+	int count, i, bit = pid == VIDEO_PID ? 1 : pid == AUDIO_PID ? 2 : 0;
 	memcpy(p, packet, PACKET);
 	p[1] = (unsigned char)((p[1] & 0xe0) | pid >> 8);
 	p[2] = (unsigned char)pid;
+	if (stream->broken & bit) {
+		if ((p[3] & 0x20) && p[4]) {
+			p[5] |= 0x80;
+		}
+		stream->broken &= ~bit;
+	}
 	if (has_pcr(p)) {
 		stream->last_pcr = (get_pcr(p) + feed->offset) & (WRAP - 1);
 		set_pcr(p, stream->last_pcr);
@@ -258,6 +264,7 @@ static int sync_feed(struct stream *stream, struct feed *feed, unsigned char *p)
 		} else {
 			skip_count(stream, VIDEO_PID);
 			skip_count(stream, AUDIO_PID);
+			stream->broken = 3;
 		}
 	}
 	reset_packer(stream, whole);

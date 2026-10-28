@@ -56,6 +56,7 @@ struct stream {
 	int video_started;
 	int timeline;
 	int whole;
+	int broken;
 	uint64_t last_ts;
 	uint64_t last_pcr;
 	uint64_t frame_ts;
