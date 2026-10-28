@@ -372,7 +372,7 @@ static void play(struct rtsp_viewer *rtsp, uint64_t now) {
 	if (viewer->stage != STREAM && !config.rtsp_backlog) {
 		edge(&viewer->stream->rtp, &mark, rtsp->rate);
 	}
-	if (viewer->stage != STREAM || mark.at > viewer->pos) {
+	if (viewer->stage != STREAM || (rtsp->paused && mark.at > viewer->pos)) {
 		restart(rtsp, &mark);
 	}
 	rtsp->paused = 0;
