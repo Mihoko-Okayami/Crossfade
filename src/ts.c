@@ -7,6 +7,7 @@
 
 #define START 90000
 #define TABLE_INTERVAL 400
+#define LEAD 9000
 
 static unsigned char pat[PACKET], pmt[PACKET];
 
@@ -192,7 +193,7 @@ static void emit(struct stream *stream, const struct feed *feed, const unsigned 
 	}
 	if (has_pcr(p)) {
 		stream->last_pcr = (get_pcr(p) + feed->offset) & (WRAP - 1);
-		set_pcr(p, stream->last_pcr);
+		set_pcr(p, (stream->last_pcr - LEAD) & (WRAP - 1));
 	}
 	stamp = stamps(p, &count);
 	for (i = 0; i < count; i++) {
