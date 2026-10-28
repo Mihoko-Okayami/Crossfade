@@ -107,7 +107,7 @@ void copy_field(char *out, size_t size, const char *value) {
 void format_date(char *text, size_t size) {
 	time_t now = time(NULL);
 	struct tm utc;
-	if (!gmtime_r(&now, &utc) || !strftime(text, size, "%a, %b %d %Y %H:%M:%S GMT", &utc)) {
+	if (!gmtime_r(&now, &utc) || !strftime(text, size, "%a, %d %b %Y %H:%M:%S GMT", &utc)) {
 		*text = '\0';
 	}
 }
