@@ -550,7 +550,7 @@ static void sweep(struct worker *worker) {
 			http_retry(viewer, expired);
 		}
 		if (viewer->stage == STREAM ? (viewer->protocol == RTSP ? rtsp_idle(viewer, now) : http_idle(viewer, now)) : now - viewer->since >= (viewer->asked ? DEADLINE : FIRST_REQUEST)) {
-			drop(worker, viewer, 1);
+			drop(worker, viewer, viewer->stage == STREAM || viewer->out_size);
 		} else {
 			step(worker, viewer);
 		}

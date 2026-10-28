@@ -199,16 +199,19 @@ int http_input(struct viewer *viewer, uint64_t now) {
 	struct sockaddr_storage address = { .ss_family = AF_UNSPEC };
 	socklen_t size = sizeof(address);
 	struct peer peer;
-	size_t length;
+	size_t length, skip;
 	int named, fine, hosts;
 	if (viewer->stage != REQUEST || viewer->closing) {
 		viewer->used = 0;
 		return 0;
 	}
+	for (skip = 0; skip + 1 < viewer->used && http->in[skip] == '\r' && http->in[skip + 1] == '\n'; skip += 2) continue;
+	memmove(http->in, http->in + skip, viewer->used - skip);
+	viewer->used -= skip;
 	end = memmem(http->in, viewer->used, "\r\n\r\n", 4);
 	if (!end) {
 		if (viewer->used == sizeof(http->in)) {
-			refuse(viewer, memchr(http->in, '\n', viewer->used) ? "431 Request Header Fields Too Large" : "414 URI Too Long");
+			refuse(viewer, memchr(http->in, '\n', viewer->used) ? "431 Request Header Fields Too Large" : memchr(http->in, ' ', viewer->used) ? "414 URI Too Long" : "501 Not Implemented");
 		}
 		return 0;
 	}
@@ -225,7 +228,7 @@ int http_input(struct viewer *viewer, uint64_t now) {
 	*line = '\0';
 	target = strchr(http->in, ' ');
 	version = target ? strchr(target + 1, ' ') : NULL;
-	if (!version || (strcmp(version + 1, "HTTP/1.1") && strcmp(version + 1, "HTTP/1.0")) || !fine || (!hosts && !strcmp(version + 1, "HTTP/1.1"))) {
+	if (!version || strncmp(version + 1, "HTTP/1.", 7) || version[8] < '0' || version[8] > '9' || version[9] || !fine || (!hosts && version[8] != '0')) {
 		refuse(viewer, "400 Bad Request");
 		return 0;
 	}
@@ -233,7 +236,7 @@ int http_input(struct viewer *viewer, uint64_t now) {
 	*version = '\0';
 	http->head_only = !strcmp(http->in, "HEAD");
 	if (!http->head_only && strcmp(http->in, "GET")) {
-		refuse(viewer, "405 Method Not Allowed");
+		refuse(viewer, "501 Not Implemented");
 		return 0;
 	}
 	if (!strncasecmp(target, "http://", 7) || !strncasecmp(target, "https://", 8)) {
