@@ -374,7 +374,7 @@ static void play(struct rtsp_viewer *rtsp, uint64_t now) {
 }
 
 static void answer(struct rtsp_viewer *rtsp, char *method, uint64_t now) {
-	char *line = strstr(method, "\r\n"), *uri, *version, transport[256], session[64];
+	char *line = strstr(method, "\r\n"), *uri, *version, transport[256], session[64], date[64];
 	const char *given = field(line, "Session");
 	size_t length;
 	rtsp->request = rtsp->base.asked = now;
@@ -386,7 +386,8 @@ static void answer(struct rtsp_viewer *rtsp, char *method, uint64_t now) {
 	uri = strchr(method, ' ');
 	version = uri ? strchr(uri + 1, ' ') : NULL;
 	if (version && !strncmp(version + 1, "HTTP/1.", 7)) {
-		queue(&rtsp->base, "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n");
+		format_date(date, sizeof(date));
+		queue(&rtsp->base, "HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\nDate: %s\r\nServer: crossfade %s\r\n\r\n", date, VERSION);
 		rtsp->base.closing = 1;
 		return;
 	}

@@ -33,7 +33,9 @@ struct viewer *http_new(void) {
 }
 
 static void refuse(struct viewer *viewer, const char *status) {
-	queue(viewer, "HTTP/1.1 %s\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", status);
+	char date[64];
+	format_date(date, sizeof(date));
+	queue(viewer, "HTTP/1.1 %s\r\nConnection: close\r\nContent-Length: 0\r\nDate: %s\r\nServer: crossfade %s\r\n\r\n", status, date, VERSION);
 	viewer->closing = 1;
 }
 
