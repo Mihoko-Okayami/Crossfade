@@ -8,6 +8,7 @@
 #define START 90000
 #define TABLE_INTERVAL 400
 #define LEAD 9000
+#define TICK 80
 
 static unsigned char pat[PACKET], pmt[PACKET];
 
@@ -193,6 +194,7 @@ static void emit(struct stream *stream, const struct feed *feed, const unsigned 
 	}
 	if (has_pcr(p)) {
 		stream->last_pcr = (get_pcr(p) + feed->offset) & (WRAP - 1);
+		stream->clocked = stream->ticked = msec();
 		set_pcr(p, (stream->last_pcr - LEAD) & (WRAP - 1));
 	}
 	stamp = stamps(p, &count);
@@ -222,10 +224,31 @@ static void tables(struct stream *stream) {
 	emit(stream, &stream->live, pmt, PMT_PID);
 }
 
+static void clock_only(struct stream *stream, uint64_t pcr) {
+	unsigned char p[PACKET];
+	memset(p, 0xff, PACKET);
+	p[0] = 0x47;
+	p[1] = VIDEO_PID >> 8;
+	p[2] = VIDEO_PID & 0xff;
+	p[3] = (unsigned char)(0x20 | stream->cc[VIDEO_PID]);
+	p[4] = PACKET - 5;
+	p[5] = 0x10;
+	p[10] = 0x7e;
+	p[11] = 0;
+	set_pcr(p, (pcr - LEAD) & (WRAP - 1));
+	if (stream->ts.data) {
+		ring_write(&stream->ts, p, PACKET);
+	}
+}
+
 void idle(struct stream *stream, uint64_t now) {
-	if ((int64_t)(now - stream->tabled) < TABLE_INTERVAL) return;
-	tables(stream);
-	stream->tabled = now;
+	if ((int64_t)(now - stream->ticked) < TICK) return;
+	clock_only(stream, (stream->last_pcr + (now - stream->clocked) * 90) & (WRAP - 1));
+	stream->ticked = now;
+	if ((int64_t)(now - stream->tabled) >= TABLE_INTERVAL) {
+		tables(stream);
+		stream->tabled = now;
+	}
 	publish(stream, now);
 }
 
@@ -244,7 +267,7 @@ static void follow(struct stream *stream, struct feed *feed, const unsigned char
 
 static int sync_feed(struct stream *stream, struct feed *feed, unsigned char *p) {
 	unsigned char *stamp;
-	uint64_t dts, by_ts, by_pcr, margin;
+	uint64_t dts, by_ts, by_pcr, margin, pcr;
 	int count, whole = stream->whole && feed == &stream->still;
 	stamp = stamps(p, &count);
 	if (!count) return 0;
@@ -255,6 +278,7 @@ static int sync_feed(struct stream *stream, struct feed *feed, unsigned char *p)
 		stream->last_pcr = START;
 		stream->packer.clock = stream->last_ts;
 		stream->timeline = 1;
+		stream->broken = 1;
 	} else {
 		margin = whole ? 1 : GAP;
 		by_ts = (stream->last_ts + margin - (whole ? get_stamp(stamp) : dts)) & (WRAP - 1);
@@ -262,6 +286,9 @@ static int sync_feed(struct stream *stream, struct feed *feed, unsigned char *p)
 		feed->offset = later(by_ts, by_pcr);
 		if (whole) {
 			feed->offset = later(feed->offset, (stream->frame_ts + stream->frame_step + stream->video->tail - dts) & (WRAP - 1));
+			for (pcr = stream->last_pcr + 90 * TICK; has_pcr(p) && ((get_pcr(p) + feed->offset - pcr - 1) & (WRAP - 1)) < WRAP / 2; pcr += 90 * TICK) {
+				clock_only(stream, pcr & (WRAP - 1));
+			}
 		} else {
 			skip_count(stream, VIDEO_PID);
 			skip_count(stream, AUDIO_PID);

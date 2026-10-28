@@ -87,7 +87,6 @@ static void finish(struct stream *stream) {
 	atomic_store(&stream->audio_kbps, 0);
 	memset(packer->config, 0, sizeof(packer->config));
 	stream->timeline = 0;
-	stream->broken = 0;
 	stream->aired = 0;
 	note(ON_STREAM, "%s: stream ended", stream->name);
 }

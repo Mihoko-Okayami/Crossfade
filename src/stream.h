@@ -59,6 +59,8 @@ struct stream {
 	int broken;
 	uint64_t last_ts;
 	uint64_t last_pcr;
+	uint64_t clocked;
+	uint64_t ticked;
 	uint64_t frame_ts;
 	uint64_t frame_step;
 	uint64_t tabled;
