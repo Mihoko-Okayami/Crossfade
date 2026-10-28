@@ -91,7 +91,7 @@ static int begin(struct http_viewer *http) {
 	char date[64];
 	if (!choose(viewer, &viewer->stream->ts, backlog, &mark, &viewer->epoch)) return 0;
 	format_date(date, sizeof(date));
-	queue(viewer, "HTTP/1.1 200 OK\r\nConnection: keep-alive\r\n%s\r\nDate: %s\r\nKeep-Alive: timeout=30, max=100\r\nServer: crossfade %s\r\n\r\n", http->head_only ? "Content-Length: 0" : "Content-Type: video/mp2t; charset=utf-8", date, VERSION);
+	queue(viewer, "HTTP/1.1 200 OK\r\nAccept-Ranges: none\r\nCache-Control: no-cache, no-store\r\nConnection: close\r\nContent-Type: video/mp2t\r\nDate: %s\r\nPragma: no-cache\r\nServer: crossfade %s\r\n\r\n", date, VERSION);
 	if (http->head_only) {
 		viewer->closing = 1;
 		return 1;
