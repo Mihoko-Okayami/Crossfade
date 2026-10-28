@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include "http.h"
 #include "log.h"
@@ -171,6 +172,27 @@ static void bridge(struct http_viewer *http, const struct mark *mark) {
 	http->first = mark->at;
 }
 
+static int wellformed(const char *line, int *hosts) {
+	const char *next, *colon, *value;
+	size_t name, size, lengths = 0, i;
+	for (*hosts = 0, line += 2; *line; line = next + 2) {
+		next = strstr(line, "\r\n");
+		colon = memchr(line, ':', (size_t)(next - line));
+		if (*line == ' ' || *line == '\t' || !colon || colon == line || colon[-1] == ' ' || colon[-1] == '\t' || memchr(line, '\r', (size_t)(next - line)) || memchr(line, '\n', (size_t)(next - line))) return 0;
+		name = (size_t)(colon - line);
+		value = colon + 1 + strspn(colon + 1, " \t");
+		for (size = (size_t)(next - value); size && (value[size - 1] == ' ' || value[size - 1] == '\t'); size--) continue;
+		if (name == 17 && !strncasecmp(line, "Transfer-Encoding", 17)) return 0;
+		if (name == 14 && !strncasecmp(line, "Content-Length", 14) && (lengths++ || !size || strspn(value, "0123456789") != size)) return 0;
+		if (name != 4 || strncasecmp(line, "Host", 4)) continue;
+		if ((*hosts)++) return 0;
+		for (i = 0; i < size; i++) {
+			if ((unsigned char)value[i] <= ' ' || value[i] == 127 || strchr("/?#@,", value[i])) return 0;
+		}
+	}
+	return 1;
+}
+
 int http_input(struct viewer *viewer, uint64_t now) {
 	struct http_viewer *http = (struct http_viewer *)viewer;
 	char *end, *line, *target, *version, text[INET6_ADDRSTRLEN];
@@ -178,7 +200,7 @@ int http_input(struct viewer *viewer, uint64_t now) {
 	socklen_t size = sizeof(address);
 	struct peer peer;
 	size_t length;
-	int named;
+	int named, fine, hosts;
 	if (viewer->stage != REQUEST || viewer->closing) {
 		viewer->used = 0;
 		return 0;
@@ -186,7 +208,7 @@ int http_input(struct viewer *viewer, uint64_t now) {
 	end = memmem(http->in, viewer->used, "\r\n\r\n", 4);
 	if (!end) {
 		if (viewer->used == sizeof(http->in)) {
-			refuse(viewer, "431 Request Header Fields Too Large");
+			refuse(viewer, memchr(http->in, '\n', viewer->used) ? "431 Request Header Fields Too Large" : "414 URI Too Long");
 		}
 		return 0;
 	}
@@ -199,10 +221,11 @@ int http_input(struct viewer *viewer, uint64_t now) {
 	end[2] = '\0';
 	line = strstr(http->in, "\r\n");
 	named = forwarded(line, &peer);
+	fine = wellformed(line, &hosts);
 	*line = '\0';
 	target = strchr(http->in, ' ');
 	version = target ? strchr(target + 1, ' ') : NULL;
-	if (!version || (strcmp(version + 1, "HTTP/1.1") && strcmp(version + 1, "HTTP/1.0"))) {
+	if (!version || (strcmp(version + 1, "HTTP/1.1") && strcmp(version + 1, "HTTP/1.0")) || !fine || (!hosts && !strcmp(version + 1, "HTTP/1.1"))) {
 		refuse(viewer, "400 Bad Request");
 		return 0;
 	}
@@ -212,6 +235,10 @@ int http_input(struct viewer *viewer, uint64_t now) {
 	if (!http->head_only && strcmp(http->in, "GET")) {
 		refuse(viewer, "405 Method Not Allowed");
 		return 0;
+	}
+	if (!strncasecmp(target, "http://", 7) || !strncasecmp(target, "https://", 8)) {
+		target = strchr(target, ':') + 3;
+		target += strcspn(target, "/?");
 	}
 	target[strcspn(target, "?")] = '\0';
 	if (!strcmp(target, "/health")) {
