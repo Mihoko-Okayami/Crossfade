@@ -326,6 +326,11 @@ static void setup(struct rtsp_viewer *rtsp, const char *uri, const char *transpo
 	rtsp->base.stream = stream;
 	rtsp->base.version = version;
 	rtsp->channel[track] = channel;
+	if (!*rtsp->root) {
+		for (length = (size_t)(strstr(uri, "trackID=") - uri); length && uri[length - 1] == '/'; length--) continue;
+		memcpy(rtsp->root, uri, length);
+		rtsp->root[length] = '\0';
+	}
 	reply(rtsp, "200 OK", headers);
 }
 
@@ -354,6 +359,8 @@ static void play(struct rtsp_viewer *rtsp, uint64_t now) {
 	struct viewer *viewer = &rtsp->base;
 	struct mark mark;
 	unsigned int epoch;
+	char headers[2 * URI_SIZE + 192];
+	int track, n;
 	if (rtsp->channel[0] < 0 && rtsp->channel[1] < 0) {
 		reply(rtsp, "455 Method Not Valid in This State", "");
 		return;
@@ -369,7 +376,13 @@ static void play(struct rtsp_viewer *rtsp, uint64_t now) {
 		restart(rtsp, &mark);
 	}
 	rtsp->paused = 0;
-	reply(rtsp, "200 OK", "");
+	n = snprintf(headers, sizeof(headers), "Range: npt=%llu.%03llu-\r\nRTP-Info: ", (unsigned long long)(rtsp->clock / 90000), (unsigned long long)(rtsp->clock % 90000 / 90));
+	for (track = 0; track < 2; track++) {
+		if (rtsp->channel[track] < 0) continue;
+		n += snprintf(headers + n, sizeof(headers) - (size_t)n, "%surl=%s/trackID=%d;seq=%u;rtptime=%u", headers[n - 1] == ' ' ? "" : ",", rtsp->root, track, (unsigned int)rtsp->seq[track], track ? (uint32_t)(rtsp->clock * (uint64_t)rtsp->rate / 90000) : (uint32_t)rtsp->clock);
+	}
+	snprintf(headers + n, sizeof(headers) - (size_t)n, "\r\n");
+	reply(rtsp, "200 OK", headers);
 	rtcp(rtsp, now);
 }
 
