@@ -229,11 +229,26 @@ static size_t bandwidth(struct stream *stream, char *sdp, size_t size, size_t ro
 	return size;
 }
 
+static size_t origin(const struct rtsp_viewer *rtsp, char *sdp, size_t size, size_t room) {
+	struct sockaddr_storage address;
+	socklen_t length = sizeof(address);
+	char host[INET6_ADDRSTRLEN], line[INET6_ADDRSTRLEN + 8], *at = strstr(sdp, " IN IP4 0.0.0.0\r\ns=");
+	int n;
+	if (!at || getsockname(rtsp->base.fd, (struct sockaddr *)&address, &length)) return size;
+	format_host((struct sockaddr *)&address, host, sizeof(host));
+	n = snprintf(line, sizeof(line), " IN IP%c %s", strchr(host, ':') ? '6' : '4', host);
+	if (n <= 0 || (size_t)n >= sizeof(line) || size + (size_t)n - 15 >= room) return size;
+	memmove(at + n, at + 15, size - (size_t)(at + 15 - sdp) + 1);
+	memcpy(at, line, (size_t)n);
+	return size + (size_t)n - 15;
+}
+
 static int describe(struct rtsp_viewer *rtsp) {
 	char sdp[sizeof(rtsp->base.stream->sdp)], headers[URI_SIZE + 256];
 	size_t size = snapshot(rtsp, rtsp->base.stream, rtsp->base.version, sdp);
 	if (!size) return 0;
 	size = bandwidth(rtsp->base.stream, sdp, size, sizeof(sdp));
+	size = origin(rtsp, sdp, size, sizeof(sdp));
 	snprintf(headers, sizeof(headers), "Content-Base: %s/\r\nContent-Type: application/sdp\r\nContent-Length: %zu\r\n", rtsp->root, size);
 	reply(rtsp, "200 OK", headers);
 	queue(&rtsp->base, "%s", sdp);

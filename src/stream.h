@@ -31,6 +31,8 @@ struct stream {
 	char passphrase[80];
 	char sdp[2048];
 	size_t sdp_size;
+	uint64_t sdp_id;
+	uint64_t sdp_version;
 	int rate;
 	SRTSOCKET publisher;
 	char peer[PEER_SIZE];

@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "log.h"
 #include "main.h"
@@ -45,11 +46,12 @@ static void update_sdp(struct stream *stream, int audio, int reset) {
 	struct packer *packer = &stream->packer;
 	char sps[sizeof(packer->sps) * 4 / 3 + 4], pps[sizeof(packer->pps) * 4 / 3 + 4], sdp[sizeof(stream->sdp)];
 	int n, live = atomic_load(&stream->state) == LIVE, channels = packer->channels == 7 ? 8 : packer->channels;
+	uint64_t now = (uint64_t)time(NULL) + 2208988800u, id = stream->sdp_size ? stream->sdp_id : now, version = stream->sdp_size && stream->sdp_version >= now ? stream->sdp_version + 1 : now;
 	if (!packer->sps_size || !packer->pps_size || !packer->rate) return;
 	encode(sps, packer->sps, packer->sps_size);
 	encode(pps, packer->pps, packer->pps_size);
-	n = snprintf(sdp, sizeof(sdp), "v=0\r\no=- 0 0 IN IP4 0.0.0.0\r\ns=Streamed by crossfade %s\r\nc=IN IP4 0.0.0.0\r\nt=0 0\r\na=range:npt=now-\r\na=control:*\r\nm=video 0 RTP/AVP 96\r\na=fmtp:96 packetization-mode=1; profile-level-id=%02X%02X%02X; sprop-parameter-sets=%s,%s\r\na=rtpmap:96 H264/90000\r\na=control:trackID=0\r\nm=audio 0 RTP/AVP 97\r\na=fmtp:97 streamtype=5;profile-level-id=%d;mode=AAC-hbr;sizelength=13;indexlength=3;indexdeltalength=3;config=%02X%02X\r\na=rtpmap:97 mpeg4-generic/%d/%d\r\na=control:trackID=1\r\n", VERSION, packer->sps[1], packer->sps[2], packer->sps[3], sps, pps, channels > 6 ? (packer->rate > 48000 ? 81 : 80) : packer->rate > 48000 ? 43 : channels > 2 ? 42 : 41, packer->config[0], packer->config[1], packer->rate, channels);
-	if (n <= 0 || (size_t)n >= sizeof(sdp) || ((size_t)n == stream->sdp_size && !memcmp(sdp, stream->sdp, (size_t)n))) return;
+	n = snprintf(sdp, sizeof(sdp), "v=0\r\no=- %llu %llu IN IP4 0.0.0.0\r\ns=Streamed by crossfade %s\r\nc=IN IP4 0.0.0.0\r\nt=0 0\r\na=range:npt=now-\r\na=control:*\r\nm=video 0 RTP/AVP 96\r\na=fmtp:96 packetization-mode=1; profile-level-id=%02X%02X%02X; sprop-parameter-sets=%s,%s\r\na=rtpmap:96 H264/90000\r\na=control:trackID=0\r\nm=audio 0 RTP/AVP 97\r\na=fmtp:97 streamtype=5;profile-level-id=%d;mode=AAC-hbr;sizelength=13;indexlength=3;indexdeltalength=3;config=%02X%02X\r\na=rtpmap:97 mpeg4-generic/%d/%d\r\na=control:trackID=1\r\n", (unsigned long long)id, (unsigned long long)version, VERSION, packer->sps[1], packer->sps[2], packer->sps[3], sps, pps, channels > 6 ? (packer->rate > 48000 ? 81 : 80) : packer->rate > 48000 ? 43 : channels > 2 ? 42 : 41, packer->config[0], packer->config[1], packer->rate, channels);
+	if (n <= 0 || (size_t)n >= sizeof(sdp) || (stream->sdp_size && !strcmp(strstr(sdp, "\r\ns="), strstr(stream->sdp, "\r\ns=")))) return;
 	if (reset && stream->sdp_size && audio) {
 		tell(CHANGED, live ? "%s: publisher %s changed the audio to %d Hz, %d channel%s, RTSP viewers reconnect" : "%s: the offline video%.0s changed the audio to %d Hz, %d channel%s, RTSP viewers reconnect", stream->name, stream->peer, packer->rate, channels, channels > 1 ? "s" : "");
 	} else if (reset && stream->sdp_size) {
@@ -58,6 +60,8 @@ static void update_sdp(struct stream *stream, int audio, int reset) {
 	pthread_mutex_lock(&stream->rtp.lock);
 	memcpy(stream->sdp, sdp, (size_t)n + 1);
 	stream->sdp_size = (size_t)n;
+	stream->sdp_id = id;
+	stream->sdp_version = version;
 	stream->rate = packer->rate;
 	if (reset) {
 		stream->rtp.mark_count = 0;
