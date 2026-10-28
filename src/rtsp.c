@@ -422,7 +422,7 @@ static void answer(struct rtsp_viewer *rtsp, char *method, uint64_t now) {
 	} else if (!strcmp(method, "OPTIONS") && !strcmp(uri, "*") && !healthy()) {
 		reply(rtsp, "503 Service Unavailable", "");
 	} else if (!strcmp(method, "OPTIONS")) {
-		reply(rtsp, "200 OK", "Public: OPTIONS, DESCRIBE, SETUP, TEARDOWN, PLAY, PAUSE, ANNOUNCE, RECORD, SET_PARAMETER, GET_PARAMETER\r\n");
+		reply(rtsp, "200 OK", "Public: OPTIONS, DESCRIBE, SETUP, TEARDOWN, PLAY, PAUSE, GET_PARAMETER, SET_PARAMETER\r\n");
 	} else if (!strcmp(method, "DESCRIBE") && rtsp->base.stage == STREAM) {
 		reply(rtsp, "455 Method Not Valid in This State", "");
 	} else if (!strcmp(method, "DESCRIBE")) {
