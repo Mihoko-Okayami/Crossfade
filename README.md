@@ -53,7 +53,20 @@ Settings > Stream, Service `Custom`, Server:
 srt://<host>:8890?streamid=#!::r=<stream>,m=publish&passphrase=<passphrase>&pbkeylen=32&latency=1000000
 ```
 
-`latency` is in microseconds: SRT keeps the larger of it and `[srt] latency`, which the log shows when OBS connects. Use H.264 with a keyframe interval of 1 s and no B-frames, and AAC at 48 kHz.
+`latency` is in microseconds: SRT keeps the larger of it and `[srt] latency`, which the log shows when OBS connects.
+
+| Settings | Value |
+|---|---|
+| Output > Output Mode | Advanced |
+| Output > Streaming > Audio Encoder | CoreAudio AAC, or FFmpeg AAC |
+| Output > Streaming > Video Encoder | H.264 (x264, NVENC, QuickSync or AMD) |
+| Output > Streaming > Rate Control | CBR |
+| Output > Streaming > Keyframe Interval | 1 s |
+| Output > Streaming > Profile | high |
+| Output > Streaming > B-Frames | 0 |
+| Output > Streaming > x264 Options, with x264 | bframes=0 |
+| Output > Audio > Audio Bitrate | 320 kbps at most |
+| Audio > Sample Rate | 48 kHz |
 
 ## Players
 
