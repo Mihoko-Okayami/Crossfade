@@ -12,8 +12,11 @@
 struct mark {
 	uint64_t at;
 	uint64_t time;
+	uint64_t pcr;
 	uint32_t ts[2];
-	unsigned char cc[2];
+	unsigned char cc[4];
+	unsigned char clocked;
+	unsigned char declared;
 };
 
 struct ring {

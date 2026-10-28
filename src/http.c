@@ -9,8 +9,9 @@
 #include "main.h"
 
 #define INPUT_SIZE 2048
-#define OUTPUT_SIZE 512
+#define OUTPUT_SIZE (8 * PACKET)
 #define STALL 3600000
+#define BEFORE 180
 
 static atomic_int unnamed;
 
@@ -18,6 +19,8 @@ struct http_viewer {
 	struct viewer base;
 	int head_only;
 	int align;
+	int cc[2];
+	uint64_t first;
 	char in[INPUT_SIZE];
 	char out[OUTPUT_SIZE];
 };
@@ -103,26 +106,69 @@ static int begin(struct http_viewer *http) {
 		viewer->out_size += PACKET;
 	}
 	http->align = backlog == LIVE_EDGE;
+	http->first = mark.at;
+	http->cc[0] = http->cc[1] = -1;
 	start(viewer, &viewer->stream->ts, &mark);
 	return 1;
 }
 
-static void bridge(struct viewer *viewer, const struct mark *mark) {
-	static const int pids[] = { VIDEO_PID, AUDIO_PID };
-	unsigned char *p;
-	int i;
-	for (i = 0; i < 2; i++) {
-		p = (unsigned char *)viewer->out + viewer->out_size;
-		memset(p, 0xff, PACKET);
-		p[0] = 0x47;
-		p[1] = (unsigned char)(pids[i] >> 8);
-		p[2] = (unsigned char)pids[i];
-		p[3] = (unsigned char)(0x30 | ((mark->cc[i] + 8) & 15));
-		p[4] = PACKET - 6;
-		p[5] = 0;
-		p[PACKET - 1] = 0;
-		viewer->out_size += PACKET;
+static int sent(const struct http_viewer *http, int pid, int fallback) {
+	const struct viewer *viewer = &http->base;
+	unsigned char header[4];
+	uint64_t at = viewer->pos;
+	while (at >= http->first + PACKET && atomic_load_explicit(&viewer->ring->head, memory_order_acquire) - at < viewer->ring->size / 2) {
+		at -= PACKET;
+		ring_peek(viewer->ring, at, header, sizeof(header));
+		if (pid_of(header) == pid && (header[3] & 0x10)) return header[3] & 15;
 	}
+	return fallback;
+}
+
+static unsigned char *blank(struct viewer *viewer, int pid, int control, int cc) {
+	unsigned char *p = (unsigned char *)viewer->out + viewer->out_size;
+	memset(p, 0xff, PACKET);
+	p[0] = 0x47;
+	p[1] = (unsigned char)(pid >> 8);
+	p[2] = (unsigned char)pid;
+	p[3] = (unsigned char)(control | (cc & 15));
+	viewer->out_size += PACKET;
+	return p;
+}
+
+static void bridge(struct http_viewer *http, const struct mark *mark) {
+	static const int pids[] = { VIDEO_PID, AUDIO_PID };
+	static const unsigned char empty[] = { 0, 0, 1, 0, 0, 3, 0x80, 0, 0 };
+	struct viewer *viewer = &http->base;
+	unsigned char *p;
+	int i, k, last, declared, cc, count;
+	for (i = 0; i < 2; i++) {
+		last = sent(http, pids[i], http->cc[i]);
+		declared = !i && mark->declared;
+		cc = declared ? mark->cc[i] + 9 : mark->cc[i];
+		count = declared ? last >= 0 && ((mark->cc[i] - last) & 15) <= 1 : last >= 0 && ((cc - 1 - last) & 15) <= 1 ? 3 : 1;
+		for (k = count; k; k--) {
+			p = blank(viewer, pids[i], 0x30, cc - k);
+			p[1] |= 0x40;
+			p[4] = PACKET - 5 - sizeof(empty);
+			p[5] = k == count ? 0x80 : 0;
+			if (!i && k == count && !declared && mark->clocked) {
+				p[5] |= 0x10;
+				p[10] = 0x7e;
+				p[11] = 0;
+				set_pcr(p, (mark->pcr - BEFORE) & (WRAP - 1));
+			}
+			memcpy(p + PACKET - sizeof(empty), empty, sizeof(empty));
+			p[PACKET - sizeof(empty) + 3] = (unsigned char)(i ? 0xc0 : 0xe0);
+		}
+		http->cc[i] = count ? (cc - 1) & 15 : last;
+	}
+	p = blank(viewer, 0, 0x20, mark->cc[2] - 1);
+	p[4] = PACKET - 5;
+	p[5] = 0x80;
+	p = blank(viewer, PMT_PID, 0x20, mark->cc[3] - 1);
+	p[4] = PACKET - 5;
+	p[5] = 0x80;
+	http->first = mark->at;
 }
 
 int http_input(struct viewer *viewer, uint64_t now) {
@@ -227,6 +273,7 @@ int http_flush(struct viewer *viewer, uint64_t now) {
 			ring_peek(ring, viewer->pos, header, sizeof(header));
 			if ((header[1] & 0x5f) == 0x40 && !header[2]) {
 				http->align = 0;
+				http->first = viewer->pos;
 			} else {
 				viewer->pos += PACKET;
 			}
@@ -239,7 +286,7 @@ int http_flush(struct viewer *viewer, uint64_t now) {
 		}
 		catch_up(viewer, head);
 		if (viewer->jump && !(viewer->pos % PACKET)) {
-			bridge(viewer, &viewer->target);
+			bridge(http, &viewer->target);
 			start(viewer, ring, &viewer->target);
 			continue;
 		}
@@ -254,6 +301,11 @@ int http_flush(struct viewer *viewer, uint64_t now) {
 			ring_peek(ring, viewer->pos, (unsigned char *)viewer->out, viewer->out_size);
 			if (overrun(viewer)) return ABORT;
 			viewer->pos += viewer->out_size;
+		}
+		if (!viewer->writable) {
+			http->cc[0] = sent(http, VIDEO_PID, http->cc[0]);
+			http->cc[1] = sent(http, AUDIO_PID, http->cc[1]);
+			http->first = viewer->pos;
 		}
 	}
 	return KEEP;

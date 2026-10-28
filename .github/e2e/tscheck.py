@@ -53,7 +53,8 @@ def main(path):
 		if not control & 1 or pid not in (video, audio):
 			continue
 		size = 188 - at
-		report["fillers"] += control == 3 and p[4] == 182 and p[5] == 0 and not start and p[187] == 0 and p[6:187] == b"\xff" * 181
+		filler = control == 3 and start and p[at:] == bytes([0, 0, 1, 0xe0 if pid == video else 0xc0, 0, 3, 0x80, 0, 0])
+		report["fillers"] += filler
 		repeat = pid in last and cc == last[pid]
 		if repeat:
 			report["dropped"] += 1
@@ -78,7 +79,7 @@ def main(path):
 				seam = (t - sound - frames(es) * 1920 + (1 << 32)) % (1 << 33) - (1 << 32)
 				report["seams"] += seam < 0 or 0 < seam < 4500
 			sound, es = t, bytearray(p[at + 9 + p[at + 8]:])
-		elif pid == audio and not repeat and sound is not None:
+		elif pid == audio and not repeat and not filler and sound is not None:
 			es += p[at:]
 	report["first"] = [hex(x) for x in report["first"]]
 	print(json.dumps(report))

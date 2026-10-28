@@ -29,7 +29,7 @@ uint64_t get_pcr(const unsigned char *p) {
 	return (uint64_t)p[6] << 25 | (uint64_t)p[7] << 17 | (uint64_t)p[8] << 9 | (uint64_t)p[9] << 1 | p[10] >> 7;
 }
 
-static void set_pcr(unsigned char *p, uint64_t base) {
+void set_pcr(unsigned char *p, uint64_t base) {
 	p[6] = (unsigned char)(base >> 25);
 	p[7] = (unsigned char)(base >> 17);
 	p[8] = (unsigned char)(base >> 9);
@@ -297,6 +297,11 @@ void take(struct stream *stream, struct feed *feed, unsigned char *p) {
 		mark.time = msec();
 		mark.cc[0] = (unsigned char)((stream->cc[VIDEO_PID] + 1) & 15);
 		mark.cc[1] = (unsigned char)((stream->cc[AUDIO_PID] + 1) & 15);
+		mark.cc[2] = (unsigned char)((stream->cc[0] + 1) & 15);
+		mark.cc[3] = (unsigned char)((stream->cc[PMT_PID] + 1) & 15);
+		mark.clocked = (unsigned char)has_pcr(p);
+		mark.declared = (unsigned char)(mark.clocked && (stream->broken & 1));
+		mark.pcr = (get_pcr(p) + feed->offset - LEAD) & (WRAP - 1);
 		if (stream->ts.data) {
 			ring_mark(&stream->ts, &mark, onset);
 		}

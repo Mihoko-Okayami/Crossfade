@@ -31,6 +31,7 @@ int pid_of(const unsigned char *p);
 int payload_of(const unsigned char *p);
 int has_pcr(const unsigned char *p);
 uint64_t get_pcr(const unsigned char *p);
+void set_pcr(unsigned char *p, uint64_t base);
 uint64_t get_stamp(const unsigned char *b);
 unsigned char *stamps(unsigned char *p, int *count);
 void make_tables(void);
