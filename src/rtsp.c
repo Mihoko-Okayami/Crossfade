@@ -234,7 +234,7 @@ static int describe(struct rtsp_viewer *rtsp) {
 	size_t size = snapshot(rtsp, rtsp->base.stream, rtsp->base.version, sdp);
 	if (!size) return 0;
 	size = bandwidth(rtsp->base.stream, sdp, size, sizeof(sdp));
-	snprintf(headers, sizeof(headers), "Content-Base: %s/\r\nContent-Type: application/sdp\r\nContent-Length: %zu\r\nx-Accept-Dynamic-Rate: 1\r\nx-Accept-Retransmit: our-retransmit\r\n", rtsp->root, size);
+	snprintf(headers, sizeof(headers), "Content-Base: %s/\r\nContent-Type: application/sdp\r\nContent-Length: %zu\r\n", rtsp->root, size);
 	reply(rtsp, "200 OK", headers);
 	queue(&rtsp->base, "%s", sdp);
 	return 1;
@@ -318,7 +318,7 @@ static void setup(struct rtsp_viewer *rtsp, const char *uri, const char *transpo
 		reply(rtsp, "400 Bad Request", "");
 		return;
 	}
-	snprintf(headers, sizeof(headers), "Transport: RTP/AVP/TCP;unicast;interleaved=%d-%d;ssrc=%08X\r\nx-Dynamic-Rate: 1\r\nx-Transport-Options: late-tolerance=1.400000\r\n", channel, channel + 1, stream->ssrc[track]);
+	snprintf(headers, sizeof(headers), "Transport: RTP/AVP/TCP;unicast;interleaved=%d-%d;ssrc=%08X\r\n", channel, channel + 1, stream->ssrc[track]);
 	if (!identify(rtsp)) {
 		fail(rtsp, "500 Internal Server Error");
 		return;
