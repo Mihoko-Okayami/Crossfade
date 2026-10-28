@@ -195,7 +195,7 @@ static void pack_video(struct stream *stream, const unsigned char *data, size_t 
 	for (sliced = 0, cursor = data; (nal = next_nal(&cursor, end, &length));) {
 		type = nal[0] & 0x1f;
 		if (!wanted(type, &sliced) || type == 7 || type == 8) continue;
-		if (key && type >= 1 && type <= 5 && !configured++) {
+		if (key && !configured++) {
 			send_nal(stream, packer->sps, packer->sps_size, (uint32_t)clock, 0);
 			send_nal(stream, packer->pps, packer->pps_size, (uint32_t)clock, 0);
 		}
