@@ -6,7 +6,6 @@
 
 #define RECORD 8
 #define MARKER 1
-#define UNIT_END 2
 
 struct stream;
 

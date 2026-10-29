@@ -359,7 +359,7 @@ static void edge(const struct ring *ring, struct mark *mark, int rate) {
 		ring_peek(ring, at, record, RECORD);
 		length = (size_t)record[0] << 8 | record[1];
 		if (head - at < RECORD + length) break;
-		if (record[2] & 1 || !(record[3] & UNIT_END)) continue;
+		if (record[2] & 1 || !(record[3] & MARKER)) continue;
 		previous = ts;
 		ts = get32(record + 4);
 		mark->at = at + RECORD + length;
@@ -558,7 +558,7 @@ static size_t batch(struct rtsp_viewer *rtsp, uint64_t head, struct item *items,
 		skip = 0;
 		count++;
 		if (!track) {
-			inside = !(record[3] & UNIT_END);
+			inside = !(record[3] & MARKER);
 		}
 	}
 	return count;
@@ -598,7 +598,7 @@ static void commit(struct rtsp_viewer *rtsp, const struct item *items, size_t co
 			}
 			delta = offset * 90000 / rtsp->rate;
 		} else {
-			rtsp->inside = !(item->marker & UNIT_END);
+			rtsp->inside = !(item->marker & MARKER);
 			offset = (int32_t)(item->time - (uint32_t)rtsp->clock);
 			if (ahead) {
 				rtsp->position[0] = rtsp->clock + (uint64_t)offset;

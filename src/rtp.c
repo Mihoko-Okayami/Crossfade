@@ -152,7 +152,7 @@ static int keep(unsigned char *store, size_t capacity, size_t *stored, const uns
 }
 
 static void send_nal(struct stream *stream, const unsigned char *nal, size_t length, uint32_t time, int last) {
-	int type = nal[0] & 0x1f, flags = last ? MARKER | UNIT_END : 0;
+	int type = nal[0] & 0x1f, flags = last ? MARKER : 0;
 	unsigned char head[3];
 	size_t offset, chunk;
 	if (length < VIDEO_PAYLOAD) {
