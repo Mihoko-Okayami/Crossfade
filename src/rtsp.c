@@ -33,12 +33,10 @@ struct rtsp_viewer {
 	uint32_t origin[2];
 	uint32_t sent[2];
 	uint32_t octets[2];
-	uint32_t last[2];
 	uint32_t step[2];
 	uint64_t position[2];
 	uint64_t anchor[2];
 	uint64_t anchor_ntp;
-	int anchored;
 	uint32_t from;
 	uint64_t clock;
 	uint64_t request;
@@ -123,12 +121,11 @@ static void rtcp(struct rtsp_viewer *rtsp, uint64_t now) {
 	rtsp->reported = now;
 	next[0] = rtsp->sent[0] ? rtsp->position[0] + rtsp->step[0] : rtsp->clock;
 	next[1] = rtsp->sent[1] ? rtsp->position[1] + rtsp->step[1] : rtsp->clock * (uint64_t)rtsp->rate / 90000;
-	if (!rtsp->anchored) {
+	if (!rtsp->anchor_ntp) {
 		clock_gettime(CLOCK_REALTIME, &real);
 		rtsp->anchor_ntp = (uint64_t)((uint32_t)real.tv_sec + 2208988800u) << 32 | (uint64_t)real.tv_nsec * 4294967296u / 1000000000u;
 		rtsp->anchor[0] = next[0];
 		rtsp->anchor[1] = next[1];
-		rtsp->anchored = 1;
 	}
 	for (track = 0; track < 2; track++) {
 		units = track ? (uint64_t)rtsp->rate : 90000;
@@ -582,10 +579,9 @@ static void commit(struct rtsp_viewer *rtsp, const struct item *items, size_t co
 		rtsp->partial = 0;
 		rtsp->base.pos = item->end;
 		rtsp->seq[item->track]++;
-		ahead = !rtsp->sent[item->track] || (int32_t)(item->time - rtsp->last[item->track]) > 0;
+		ahead = !rtsp->sent[item->track] || (int32_t)(item->time - (uint32_t)rtsp->position[item->track]) > 0;
 		if (ahead) {
-			rtsp->step[item->track] = rtsp->sent[item->track] ? item->time - rtsp->last[item->track] : item->track ? 1024 : STEP;
-			rtsp->last[item->track] = item->time;
+			rtsp->step[item->track] = rtsp->sent[item->track] ? item->time - (uint32_t)rtsp->position[item->track] : item->track ? 1024 : STEP;
 		}
 		rtsp->sent[item->track]++;
 		rtsp->octets[item->track] += (uint32_t)(item->size - 16);
