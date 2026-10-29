@@ -83,13 +83,6 @@ static int forwarded(const char *headers, struct peer *peer) {
 	return 1;
 }
 
-static void health(struct viewer *viewer) {
-	char date[64];
-	format_date(date, sizeof(date));
-	queue(viewer, "HTTP/1.1 %s\r\nConnection: close\r\nContent-Length: 0\r\nDate: %s\r\nServer: crossfade %s\r\n\r\n", healthy() ? "200 OK" : "503 Service Unavailable", date, VERSION);
-	viewer->closing = 1;
-}
-
 static int begin(struct http_viewer *http) {
 	struct viewer *viewer = &http->base;
 	int backlog = config.backlog ? config.backlog : LIVE_EDGE;
@@ -245,7 +238,7 @@ int http_input(struct viewer *viewer, uint64_t now) {
 	}
 	target[strcspn(target, "?")] = '\0';
 	if (!strcmp(target, "/health")) {
-		health(viewer);
+		refuse(viewer, healthy() ? "200 OK" : "503 Service Unavailable");
 		return 0;
 	}
 	if (viewer->spare) {
