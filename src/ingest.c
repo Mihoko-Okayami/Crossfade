@@ -328,7 +328,6 @@ static void retire(struct stream *stream) {
 static void recycle(struct stream *stream, const char *name) {
 	rename_stream(stream, name);
 	memset(stream->cc, 15, sizeof(stream->cc));
-	stream->skipped = stream->lost = 0;
 	atomic_store(&stream->lagging, 0);
 	ring_forget(&stream->ts);
 	ring_forget(&stream->rtp);
