@@ -99,7 +99,7 @@ int ring_find(struct ring *ring, int backlog, struct mark *mark, unsigned int *e
 	for (i = 1; i <= count; i++) {
 		candidate = &ring->marks[(ring->mark_count - i) % MAX_MARKS];
 		if (candidate->at >= head) continue;
-		if (candidate->at < oldest || (found && head - candidate->at > behind)) break;
+		if (candidate->at < oldest || (found && (head - candidate->at > behind || candidate->at < ring->onset.at))) break;
 		*mark = *candidate;
 		found = 1;
 		if (now - candidate->time >= (uint64_t)backlog) break;
