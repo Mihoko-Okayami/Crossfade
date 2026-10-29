@@ -76,10 +76,10 @@ static uint64_t unwrap(struct packer *packer, uint64_t pts) {
 	return packer->clock;
 }
 
-static void record(struct stream *stream, int track, int flags, uint32_t time, const unsigned char *head, size_t head_size, const unsigned char *data, size_t size) {
+static void record(struct stream *stream, int flags, uint32_t time, const unsigned char *head, size_t head_size, const unsigned char *data, size_t size) {
 	unsigned char header[RECORD + 4];
 	put16(header, (unsigned int)(head_size + size));
-	header[2] = (unsigned char)track;
+	header[2] = 0;
 	header[3] = (unsigned char)flags;
 	put32(header + 4, time);
 	memcpy(header + RECORD, head, head_size);
@@ -158,14 +158,14 @@ static void send_nal(struct stream *stream, const unsigned char *nal, size_t len
 	if (length < VIDEO_PAYLOAD) {
 		head[0] = (unsigned char)((nal[0] & 0xe0) | 24);
 		put16(head + 1, (unsigned int)length);
-		record(stream, 0, flags, time, head, 3, nal, length);
+		record(stream, flags, time, head, 3, nal, length);
 		return;
 	}
 	head[0] = (unsigned char)((nal[0] & 0xe0) | 28);
 	for (offset = 1; offset < length; offset += chunk) {
 		chunk = length - offset < VIDEO_PAYLOAD - 2 ? length - offset : VIDEO_PAYLOAD - 2;
 		head[1] = (unsigned char)((offset == 1 ? 0x80 : 0) | (offset + chunk == length ? 0x40 : 0) | type);
-		record(stream, 0, offset + chunk == length ? flags : 0, time, head, 2, nal + offset, chunk);
+		record(stream, offset + chunk == length ? flags : 0, time, head, 2, nal + offset, chunk);
 	}
 }
 
